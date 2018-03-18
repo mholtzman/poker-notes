@@ -1,0 +1,55 @@
+body {
+  margin: 0;
+  padding: 0;
+  font-family: sans-serif;
+}
+
+.board {
+  height: 80px;
+  width: 200px;
+  border: solid 1px red;
+}
+
+.black {
+  background-color: black;
+}
+
+.card-col {
+  float: left;
+  padding: 6px;
+}
+
+.card {
+  width: 20px;
+  height: 26px;
+  padding: 4px;
+  margin: 10px 0px;
+  border-radius: 4px;
+  border: solid 1px black;
+}
+
+.card.selectable {
+  cursor: pointer;
+}
+
+.card.picked {
+  background-color: #ddd;
+  color: #aaa;
+  border: solid 1px #aaa;
+}
+
+.diamonds {
+  color: blue;
+}
+
+.hearts {
+  color: red;
+}
+
+.clubs {
+  color: green;
+}
+
+.spades {
+  color: black;
+}
