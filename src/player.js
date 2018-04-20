@@ -16,6 +16,7 @@ const Invested = styled.div`
 `;
 
 const actionLabels = {
+    check: 'Check',
     call: 'Call',
     raise: 'Raise',
     bet: 'Bet',
@@ -60,12 +61,6 @@ export default class Player extends Component {
         }));
     }
 
-    check(position) {
-        this.setState(prevState => ({
-            lastAction: "Fold"
-        }));
-    }
-
     updateStack(event) {
         this.setState({ stack: event.stackSize });
     }
@@ -76,6 +71,7 @@ export default class Player extends Component {
 
         const actions = this.allowedActions(lastAction, amountBet);
         const folded = lastAction.action === 'fold';
+        const pip = !folded && lastAction.action !== 'check';
 
         const actionElements = !folded && (
             <div>
@@ -84,7 +80,7 @@ export default class Player extends Component {
         );
 
         const investedElement = lastAction.action !== 'none' && (
-            <Invested>{actionLabels[lastAction.action]} {!folded ? "$" + amountBet : ""}</Invested>
+            <Invested>{actionLabels[lastAction.action]} {amountBet > 0 && ("$" + amountBet)}</Invested>
         );
         
         return (
@@ -108,7 +104,7 @@ export default class Player extends Component {
 
         if (canCheck(this.props.currentBet, lastAction)) {
             allowedActions.push(
-                <Check key="check" click={this.check.bind(this, this.props.label)} />
+                <Check key="check" click={this.props.onCheck.bind(this, this.props.label)} />
             )
         } else if (amountPutInPot < this.props.currentBet) {
             allowedActions.push(
@@ -116,7 +112,7 @@ export default class Player extends Component {
             )
         }
 
-        if (lastAction.amount < this.props.currentBet) {
+        if (amountPutInPot < this.props.currentBet) {
             const amountToCall = this.props.currentBet - lastAction.amount;
             allowedActions.push(
                 <Call 

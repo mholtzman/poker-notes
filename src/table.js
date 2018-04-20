@@ -27,6 +27,7 @@ const totalBet = streetAction => {
 
 const actionEvent = (action, amount, player) => ({ action, amount, player });
 const foldEvent = actionEvent.bind(null, "fold", 0);
+const checkEvent = actionEvent.bind(null, "check", 0);
 const postEvent = actionEvent.bind(null, "post");
 const callEvent = actionEvent.bind(null, "call");
 
@@ -36,7 +37,6 @@ class Table extends Component {
         super(props);
 
         this.state = {
-            potSize: this.props.blinds.bb + this.props.blinds.sb,
             currentStreet: "preflop",
             action: {
                 preflop: [
@@ -50,34 +50,45 @@ class Table extends Component {
         };
 
         this.clickHandlers = {
+            onCheck: this.onCheck.bind(this),
             onCall: this.onCall.bind(this),
             onFold: this.onFold.bind(this)
         }
     }
 
+    calculatePot() {
+        let total = 0;
+        for (let street in this.state.action) {
+            total += this.state.action[street].reduce((sum, event) => sum + event.amount, 0);
+        }
+
+        return total;
+    }
+
     onFold(playerLabel) {
         this.setState(prevState => {
-            const streetAction = prevState.action[prevState.currentStreet].slice();
-            streetAction.push(foldEvent(playerLabel));
+            let action = prevState.action;
+            
+            const lastAction = this.lastAction(prevState);
+            let lastActor = this.nextPlayer(lastAction.player).label;
+
+            while (lastActor !== playerLabel) {
+                action = this.addAction(action, prevState.currentStreet, foldEvent(lastActor));
+                lastActor = this.nextPlayer(lastActor).label;
+            }
+            
+            action = this.addAction(action, prevState.currentStreet, foldEvent(playerLabel));
             
             return {
-                action: {
-                    [prevState.currentStreet]: streetAction
-                }
+                action
             };
         });
     }
 
     onCheck(playerLabel) {
-        this.setState(prevState => {
-            const players = prevState.players.map(player => {
-                if (player.label == playerLabel) {
-                    player.lastAction = prevState.action.street;
-                }
-
-                return player;
-            });
-        });
+        this.setState(prevState => ({
+            action: this.addAction(prevState.action, prevState.currentStreet, checkEvent(playerLabel))
+        }));
     }
 
     onBet(playerLabel, amount) {
@@ -87,21 +98,33 @@ class Table extends Component {
     }
 
     onCall(playerLabel, amtCalled) {
-        this.setState(prevState => {
-            const streetAction = prevState.action[prevState.currentStreet].slice();
-            streetAction.push(callEvent(amtCalled, playerLabel));
-            
-            return {
-                action: {
-                    [prevState.currentStreet]: streetAction
-                },
-                potSize: prevState.potSize + amtCalled
-            };
-        });
+        this.setState(prevState => ({
+            action: this.addAction(prevState.action, prevState.currentStreet, callEvent(amtCalled, playerLabel))
+        }));
     }
 
     onRaise() {
 
+    }
+
+    nextPlayer(playerLabel) {
+        const index = this.props.players.findIndex(p => {
+            debug`label: ${p.label} playerLabel: ${playerLabel}`
+            return p.label === playerLabel
+        });
+
+        debug`player:${this.props.players[index + 1]}`
+        return (index === this.props.players.length - 1) ? 
+            this.props.players[0] : this.props.players[index + 1];
+    }
+
+    lastAction = state => state.action[state.currentStreet].slice().pop();
+
+    addAction(action, currentStreet, event) {
+        const streetAction = action[currentStreet].slice();
+        streetAction.push(event);
+
+        return { ...action, [currentStreet]: streetAction };
     }
 
     render() {
@@ -122,7 +145,7 @@ class Table extends Component {
 
         return (
             <div>
-                <Pot size={this.state.potSize} />
+                <Pot size={this.calculatePot()} />
                 {playerSpots}
             </div>
         )

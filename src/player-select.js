@@ -46,7 +46,7 @@ export class PlayerSelect extends Component {
         
         this.state = {
             stakes: allStakes[0],
-            numPlayers: allStakes[0].blinds.num + 2
+            numPlayers: allStakes[0].blinds.num + 4
         };
 
         this.changeStakes = this.changeStakes.bind(this);
@@ -93,7 +93,11 @@ export class PlayerSelect extends Component {
                 </div>
                 <div>
                     <label>Number of players:
-                    <select name="numberOfPlayers" id="num-players-select" onChange={this.changeNumPlayers}>
+                    <select 
+                        name="numberOfPlayers"
+                        id="num-players-select"
+                        onChange={this.changeNumPlayers}
+                        defaultValue={this.state.numPlayers} >
                             {[...Array(playerPositions.length + 1).keys()].slice(numBlinds).map(num => {
                                 return (
                                     <option key={num} value={num}>{num}</option>
