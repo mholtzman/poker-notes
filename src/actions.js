@@ -2,10 +2,6 @@ import React, { Component } from 'react';
 import styled from 'styled-components';
 
 export class Fold extends Component {
-    constructor(props) {
-        super(props);
-    }
-
     render() {
         return (
             <button onClick={this.props.click}>Fold</button>
@@ -14,10 +10,6 @@ export class Fold extends Component {
 }
 
 export class Check extends Component {
-    constructor(props) {
-        super(props);
-    }
-
     render() {
         return (
             <button onClick={this.props.click}>Check</button>
@@ -26,10 +18,6 @@ export class Check extends Component {
 }
 
 export class Call extends Component {
-    constructor(props) {
-        super(props);
-    }
-
     render() {
         return (
             <button onClick={this.props.click}>Call ${this.props.amount}</button>
@@ -38,10 +26,6 @@ export class Call extends Component {
 }
 
 export class Bet extends Component {
-    constructor(props) {
-        super(props);
-    }
-
     render() {
         return (
             <button onClick={this.props.click}>Bet</button>
@@ -50,10 +34,6 @@ export class Bet extends Component {
 }
 
 export class Raise extends Component {
-    constructor(props) {
-        super(props);
-    }
-
     render() {
         return (
             <button onClick={this.props.click}>Raise</button>
@@ -62,10 +42,6 @@ export class Raise extends Component {
 }
 
 export default class Actions extends Component {
-    constructor(props) {
-        super(props);
-    }
-
     render() {
         let actions = [];
 

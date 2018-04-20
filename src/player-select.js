@@ -46,7 +46,7 @@ export class PlayerSelect extends Component {
         
         this.state = {
             stakes: allStakes[0],
-            numPlayers: allStakes[0].blinds.num
+            numPlayers: allStakes[0].blinds.num + 2
         };
 
         this.changeStakes = this.changeStakes.bind(this);
