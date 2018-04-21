@@ -37,10 +37,21 @@ const updateStreet = (prevState, updatedAction) => ({
 });
 
 class Table extends Component {
+    state = { };
+
     constructor(props) {
         super(props);
 
-        this.state = {
+        this.clickHandlers = {
+            onCheck: this.onCheck.bind(this),
+            onCall: this.onCall.bind(this),
+            onFold: this.onFold.bind(this),
+            onRaise: this.onRaise.bind(this)
+        }
+    }
+
+    static getDerivedStateFromProps(props, prevState) {
+        return {
             currentStreet: "preflop",
             action: {
                 preflop: [
@@ -52,13 +63,6 @@ class Table extends Component {
                 river: []
             }
         };
-
-        this.clickHandlers = {
-            onCheck: this.onCheck.bind(this),
-            onCall: this.onCall.bind(this),
-            onFold: this.onFold.bind(this),
-            onRaise: this.onRaise.bind(this)
-        }
     }
 
     onFold(playerLabel) {
@@ -142,7 +146,7 @@ class Table extends Component {
     render() {
         const streetAction = getStreetAction(this.state);
         const totalCurrentBet = totalBet(streetAction);
-        const minRaise = totalCurrentBet * 2; // TODO implement this
+        const minRaise = totalCurrentBet; // TODO implement this
 
         const playerSpots = this.props.players.map(player => {
             return (
@@ -153,7 +157,7 @@ class Table extends Component {
                     stack={player.stack}
                     streetAction={actionsForPlayer(streetAction, player)}
                     currentBet={totalCurrentBet}
-                    minRaise={minRaise} />
+                    minRaiseAmount={minRaise} />
             )
         });
 

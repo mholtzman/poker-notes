@@ -1,7 +1,7 @@
 import React, { Component } from 'react';
 import styled from 'styled-components';
 
-import { Fold, Check, Call, Bet, Raise } from './actions'
+import { Fold, Check, Call, Bet, Raise, AllIn } from './actions'
 import { Log as debug } from './debug'
 
 const PlayerSummary = styled.section`
@@ -42,7 +42,7 @@ export default class Player extends Component {
         super(props);
 
          this.state = {
-             stack: props.stack
+             stack: props.label === 'HJ' ? 20 : props.stack
          };
     }
 
@@ -56,6 +56,8 @@ export default class Player extends Component {
             stack: prevState.stack - amount
         }));
     }
+
+    getBetSize = amount => Math.min(this.state.stack, this.props.currentBet - amount);
 
     render() {
         const amountBet = amountForStreet(this.props.streetAction);
@@ -105,7 +107,7 @@ export default class Player extends Component {
         }
 
         if (amountPutInPot < this.props.currentBet) {
-            const amountToCall = this.props.currentBet - lastAction.amount;
+            const amountToCall = this.getBetSize(amountPutInPot);
             allowedActions.push(
                 <Call 
                     key="call"
@@ -113,12 +115,32 @@ export default class Player extends Component {
                     click={this.handleAction.bind(this, this.props.onCall)} />
             )
         }
+
+        debug`player: ${this.props.label} minAmount: ${this.props.minRaiseAmount} currentBet: ${this.props.currentBet} putInPot: ${amountPutInPot} stack: ${this.state.stack}`
+
+        const minimumRaise = Math.min(this.props.minRaiseAmount + this.props.currentBet, this.state.stack);
+
+        const canRaise = 
+            this.props.currentBet < this.state.stack &&
+                (this.props.currentBet - amountPutInPot >= this.props.minRaiseAmount &&
+                minimumRaise < this.state.stack) ||
+                lastAction.action == 'post';
+
+        const canShove = !canRaise && lastAction.action !== 'call' && lastAction.action !== 'raise';
         
-        if (lastAction.action === 'none' || lastAction.action === 'post') {
+        if (canRaise) {
             allowedActions.push(
-                <Raise 
+                <Raise
                     key="raise"
-                    minimum={this.props.minRaise}
+                    minimum={minimumRaise}
+                    maximum={this.state.stack}
+                    click={this.handleAction.bind(this, this.props.onRaise)} />
+            )
+        } else if (canShove) {
+            allowedActions.push(
+                <AllIn
+                    key="all-in"
+                    amount={this.state.stack}
                     click={this.handleAction.bind(this, this.props.onRaise)} />
             )
         }

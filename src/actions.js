@@ -33,7 +33,10 @@ export class Call extends Component {
     render() {
         return (
             <Action>
-                <button onClick={this.props.click.bind(this, this.props.amount)}>Call ${this.props.amount}</button>
+                <button
+                    onClick={this.props.click.bind(this, this.props.amount)}>
+                    Call ${this.props.amount}
+                </button>
             </Action>
         );
     }
@@ -50,17 +53,21 @@ export class Bet extends Component {
 }
 
 export class Raise extends Component {
+    state = { amount: 0 };
+    
     static getDerivedStateFromProps(nextProps, prevState) {
-        return { amount: nextProps.minimum };
+        return { amount: Math.min(nextProps.minimum, nextProps.maximum) };
     }
 
     handleChange(event) {
-        this.setState({ amount: parseInt(event.target.value) });
+        const amount = (event.target.value && parseInt(event.target.value)) || 0;
+        this.setState({ amount });
     }
 
     render() {
         const canRaise = Number.isInteger(this.state.amount) 
-            && this.state.amount >= this.props.minimum;
+            && this.state.amount >= this.props.minimum
+            && this.state.amount <= this.props.maximum;
 
         return (
             <Action>
@@ -68,6 +75,19 @@ export class Raise extends Component {
                     onClick={this.props.click.bind(this, this.state.amount)}>Raise</button>
                 <Amount type="text" value={this.state.amount}
                     onChange={this.handleChange.bind(this)}/>
+            </Action>
+        );
+    }
+}
+
+export class AllIn extends Component {
+    render() {
+        return (
+            <Action>
+                <button
+                    onClick={this.props.click.bind(this, this.props.amount)}>
+                    All-in ${this.props.amount}
+                </button>
             </Action>
         );
     }
