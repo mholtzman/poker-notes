@@ -1,10 +1,20 @@
 import React, { Component } from 'react';
 import styled from 'styled-components';
 
+const Action = styled.div`
+    margin-right: 4px;
+`;
+
+const Amount = styled.input`
+    width: 32px;
+`
+
 export class Fold extends Component {
     render() {
         return (
-            <button onClick={this.props.click}>Fold</button>
+            <Action>
+                <button onClick={this.props.click}>Fold</button>
+            </Action>
         );
     }
 }
@@ -12,7 +22,9 @@ export class Fold extends Component {
 export class Check extends Component {
     render() {
         return (
-            <button onClick={this.props.click}>Check</button>
+            <Action>
+                <button onClick={this.props.click}>Check</button>
+            </Action>
         );
     }
 }
@@ -20,7 +32,9 @@ export class Check extends Component {
 export class Call extends Component {
     render() {
         return (
-            <button onClick={this.props.click}>Call ${this.props.amount}</button>
+            <Action>
+                <button onClick={this.props.click.bind(this, this.props.amount)}>Call ${this.props.amount}</button>
+            </Action>
         );
     }
 }
@@ -28,34 +42,33 @@ export class Call extends Component {
 export class Bet extends Component {
     render() {
         return (
-            <button onClick={this.props.click}>Bet</button>
+            <Action>
+                <button onClick={this.props.click}>Bet</button>
+            </Action>
         );
     }
 }
 
 export class Raise extends Component {
-    render() {
-        return (
-            <button onClick={this.props.click}>Raise</button>
-        );
+    static getDerivedStateFromProps(nextProps, prevState) {
+        return { amount: nextProps.minimum };
     }
-}
 
-export default class Actions extends Component {
+    handleChange(event) {
+        this.setState({ amount: parseInt(event.target.value) });
+    }
+
     render() {
-        let actions = [];
+        const canRaise = Number.isInteger(this.state.amount) 
+            && this.state.amount >= this.props.minimum;
 
-        if (this.props.hasOption) {
-            if (this.props.amountToCall > 0) {
-                actions.push(<Fold />);
-                actions.push(<Call click={this.props.onCall} amount={this.props.amountToCall}/>);
-                actions.push(<Raise/>);
-            } else {
-                actions.push(<Check />);
-                actions.push(<Bet />);
-            }
-        }
-
-        return actions;
+        return (
+            <Action>
+                <button disabled={!canRaise}
+                    onClick={this.props.click.bind(this, this.state.amount)}>Raise</button>
+                <Amount type="text" value={this.state.amount}
+                    onChange={this.handleChange.bind(this)}/>
+            </Action>
+        );
     }
 }

@@ -5,7 +5,9 @@ import { Log as debug } from './debug'
 
 import Player from './player'
 import Pot from './pot'
+import Actions, { Fold, Check, Post, Call, Bet, Raise } from './action-events'
 
+const playerLabels = players => players.map(p => p.label);
 const findPlayer = (players, label) => players.find(player => player.label == label);
 const actionsForPlayer = (actions, player) => actions.filter(p => p.player == player.label);
 
@@ -16,7 +18,7 @@ const addToPlayersRunningTotal = (runningTotal, action) => {
     
     runningTotal.player = action.player;
     runningTotal.sum += action.amount;
-
+    
     return runningTotal;
 };
 
@@ -25,12 +27,14 @@ const totalBet = streetAction => {
     return streetAction.slice().reverse().reduce(addToPlayersRunningTotal, { sum: 0 }).sum;
 };
 
-const actionEvent = (action, amount, player) => ({ action, amount, player });
-const foldEvent = actionEvent.bind(null, "fold", 0);
-const checkEvent = actionEvent.bind(null, "check", 0);
-const postEvent = actionEvent.bind(null, "post");
-const callEvent = actionEvent.bind(null, "call");
-
+const getStreetAction = state => state.action[state.currentStreet];
+const getLastAction = state => Actions.last(state.action[state.currentStreet]);
+const updateStreet = (prevState, updatedAction) => ({
+    action: {
+        ...prevState.action,
+        [prevState.currentStreet]: updatedAction
+    }
+});
 
 class Table extends Component {
     constructor(props) {
@@ -40,8 +44,8 @@ class Table extends Component {
             currentStreet: "preflop",
             action: {
                 preflop: [
-                    postEvent(props.blinds.sb, props.players[0].label),
-                    postEvent(props.blinds.bb, props.players[1].label)
+                    Post(props.blinds.sb, props.players[0].label),
+                    Post(props.blinds.bb, props.players[1].label)
                 ],
                 flop: [],
                 turn: [],
@@ -52,9 +56,79 @@ class Table extends Component {
         this.clickHandlers = {
             onCheck: this.onCheck.bind(this),
             onCall: this.onCall.bind(this),
-            onFold: this.onFold.bind(this)
+            onFold: this.onFold.bind(this),
+            onRaise: this.onRaise.bind(this)
         }
     }
+
+    onFold(playerLabel) {
+        const playerAction = Fold(playerLabel);
+        this.setState(prevState =>
+            this.addAction(prevState, playerLabel, playerAction, Fold));
+    }
+
+    onCheck(playerLabel) {
+        const playerAction = Check(playerLabel);
+        this.setState(prevState =>
+            this.addAction(prevState, playerLabel, playerAction, Check));
+    }
+
+    onBet(playerLabel, amount) {
+        const playerAction = Bet(amount, playerLabel);
+        this.setState(prevState =>
+            this.addAction(prevState, playerLabel, playerAction, Fold));
+    }
+
+    onCall(playerLabel, amount) {
+        const playerAction = Call(amount, playerLabel);
+        this.setState(prevState =>
+            this.addAction(prevState, playerLabel, playerAction, Fold));
+    }
+
+    onRaise(playerLabel, amount) {
+        const playerAction = Raise(amount, playerLabel);
+        this.setState(prevState =>
+            this.addAction(prevState, playerLabel, playerAction, Fold));
+    }
+
+    addAction(prevState, player, playerAction, defaultAction) {
+        let updatedStreetAction = 
+            this.fillActions(getStreetAction(prevState), defaultAction, player);
+
+        updatedStreetAction = Actions.add(updatedStreetAction, playerAction);
+
+        return updateStreet(prevState, updatedStreetAction);
+    }
+
+    // perform the default action (fold/check) for every player in
+    // between the last actor and the current actor
+    fillActions(streetAction, defaultAction, currentActor) {
+        const lastAction = Actions.last(streetAction);
+        let updatedAction = [...streetAction];
+
+        const startIndex = this.nextPlayerIndex(lastAction.player);
+        const endIndex = this.playerIndex(currentActor);
+
+        const addedActions = 
+            this.getPlayers(
+                this.nextPlayerIndex(lastAction.player),
+                this.playerIndex(currentActor))
+                .map(defaultAction);
+
+        return Actions.addAll(streetAction, addedActions);
+    }
+
+    getPlayers(startIndex, endIndex) {
+        return playerLabels((startIndex <= endIndex) ?
+            this.props.players.slice(startIndex, endIndex) :
+            [...this.props.players.slice(startIndex), ...this.props.players.slice(0, endIndex)]);
+    }
+
+    playerIndex = player => this.props.players.findIndex(p => p.label === player);
+    nextPlayerIndex = player => {
+        const index = this.playerIndex(player);
+        return index === this.props.players.length - 1 ? 0 : index + 1;
+    };
 
     calculatePot() {
         let total = 0;
@@ -65,71 +139,10 @@ class Table extends Component {
         return total;
     }
 
-    onFold(playerLabel) {
-        this.setState(prevState => {
-            let action = prevState.action;
-            
-            const lastAction = this.lastAction(prevState);
-            let lastActor = this.nextPlayer(lastAction.player).label;
-
-            while (lastActor !== playerLabel) {
-                action = this.addAction(action, prevState.currentStreet, foldEvent(lastActor));
-                lastActor = this.nextPlayer(lastActor).label;
-            }
-            
-            action = this.addAction(action, prevState.currentStreet, foldEvent(playerLabel));
-            
-            return {
-                action
-            };
-        });
-    }
-
-    onCheck(playerLabel) {
-        this.setState(prevState => ({
-            action: this.addAction(prevState.action, prevState.currentStreet, checkEvent(playerLabel))
-        }));
-    }
-
-    onBet(playerLabel, amount) {
-        this.setState(prevState => ({
-            potSize: prevState.potSize + amount
-        }));
-    }
-
-    onCall(playerLabel, amtCalled) {
-        this.setState(prevState => ({
-            action: this.addAction(prevState.action, prevState.currentStreet, callEvent(amtCalled, playerLabel))
-        }));
-    }
-
-    onRaise() {
-
-    }
-
-    nextPlayer(playerLabel) {
-        const index = this.props.players.findIndex(p => {
-            debug`label: ${p.label} playerLabel: ${playerLabel}`
-            return p.label === playerLabel
-        });
-
-        debug`player:${this.props.players[index + 1]}`
-        return (index === this.props.players.length - 1) ? 
-            this.props.players[0] : this.props.players[index + 1];
-    }
-
-    lastAction = state => state.action[state.currentStreet].slice().pop();
-
-    addAction(action, currentStreet, event) {
-        const streetAction = action[currentStreet].slice();
-        streetAction.push(event);
-
-        return { ...action, [currentStreet]: streetAction };
-    }
-
     render() {
-        const streetAction = this.state.action[this.state.currentStreet];
+        const streetAction = getStreetAction(this.state);
         const totalCurrentBet = totalBet(streetAction);
+        const minRaise = totalCurrentBet * 2; // TODO implement this
 
         const playerSpots = this.props.players.map(player => {
             return (
@@ -139,7 +152,8 @@ class Table extends Component {
                     label={player.label}
                     stack={player.stack}
                     streetAction={actionsForPlayer(streetAction, player)}
-                    currentBet={totalCurrentBet} />
+                    currentBet={totalCurrentBet}
+                    minRaise={minRaise} />
             )
         });
 

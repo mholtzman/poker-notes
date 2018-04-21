@@ -1,7 +1,7 @@
 import React, { Component } from 'react';
 import styled from 'styled-components';
 
-import { Fold, Check, Bet, Call, Raise } from './actions'
+import { Fold, Check, Call, Bet, Raise } from './actions'
 import { Log as debug } from './debug'
 
 const PlayerSummary = styled.section`
@@ -9,6 +9,11 @@ const PlayerSummary = styled.section`
     padding: 4px;
     margin: 4px;
     border: solid 2px palegreen;
+`;
+
+const Actions = styled.section`
+    display: flex;
+    flex-direction: row;
 `;
 
 const Invested = styled.div`
@@ -41,28 +46,15 @@ export default class Player extends Component {
          };
     }
 
-    call(amount) {
+    handleAction(actionHandler, amountPutInPot) {
+        this.updateStack(amountPutInPot);
+        actionHandler(this.props.label, amountPutInPot);
+    }
+
+    updateStack(amount) {
         this.setState(prevState => ({
             stack: prevState.stack - amount
         }));
-
-        this.props.onCall(this.props.label, amount);
-    }
-
-    bet(position) {
-        this.setState(prevState => ({
-            lastAction: "Fold"
-        }));
-    }
-
-    raise(position) {
-        this.setState(prevState => ({
-            lastAction: "Fold"
-        }));
-    }
-
-    updateStack(event) {
-        this.setState({ stack: event.stackSize });
     }
 
     render() {
@@ -74,9 +66,7 @@ export default class Player extends Component {
         const pip = !folded && lastAction.action !== 'check';
 
         const actionElements = !folded && (
-            <div>
-                {actions}
-            </div>
+            <Actions>{actions}</Actions>
         );
 
         const investedElement = lastAction.action !== 'none' && (
@@ -104,11 +94,13 @@ export default class Player extends Component {
 
         if (canCheck(this.props.currentBet, lastAction)) {
             allowedActions.push(
-                <Check key="check" click={this.props.onCheck.bind(this, this.props.label)} />
+                <Check key="check"
+                    click={this.props.onCheck.bind(this, this.props.label)} />
             )
         } else if (amountPutInPot < this.props.currentBet) {
             allowedActions.push(
-                <Fold key="fold" click={this.props.onFold.bind(this, this.props.label)} />
+                <Fold key="fold"
+                    click={this.props.onFold.bind(this, this.props.label)} />
             )
         }
 
@@ -118,7 +110,7 @@ export default class Player extends Component {
                 <Call 
                     key="call"
                     amount={amountToCall}
-                    click={this.call.bind(this, amountToCall)} />
+                    click={this.handleAction.bind(this, this.props.onCall)} />
             )
         }
         
@@ -126,7 +118,8 @@ export default class Player extends Component {
             allowedActions.push(
                 <Raise 
                     key="raise"
-                    click={this.raise.bind(this, this.props.label)} />
+                    minimum={this.props.minRaise}
+                    click={this.handleAction.bind(this, this.props.onRaise)} />
             )
         }
 
