@@ -30,15 +30,7 @@ const player = (label, stack) => ({
 });
 
 const buyin = bb => bb * 100; // 100 big blinds
-const createPlayer = (label, bb) => player(label, buyin(bb));
-
-const createPlayers = (labels, blinds) => {
-    const players = labels.map(label => createPlayer(label, blinds.bb));
-    players[0].amountBet = blinds.sb;    
-    players[1].amountBet = blinds.bb;
-
-    return players;
-}
+const createPlayerWithDefaultStack = (label, bb) => player(label, buyin(bb));
 
 export class PlayerSelect extends Component {
     constructor(props) {
@@ -56,7 +48,7 @@ export class PlayerSelect extends Component {
     changeStakes(event) {
         const stake = allStakes[parseInt(event.target.value)];
 
-        console.log(`changing stakes to ${stake.label}`)
+        console.log(`changing stakes to ${stake.label}`);
         this.setState({ stakes: stake })
     }
 
@@ -76,7 +68,9 @@ export class PlayerSelect extends Component {
                 (this.state.numPlayers - numBlinds))
         ];
 
-        const players = tableSpots.map(label => createPlayer(label, this.state.stakes.blinds.bb));
+        const players = tableSpots.map(label => {
+            return label === 'HJ' ? player(label, 20) : createPlayerWithDefaultStack(label, this.state.stakes.blinds.bb)
+        });
 
         return (
             <div>

@@ -22,19 +22,10 @@ const addToPlayersRunningTotal = (runningTotal, action) => {
     return runningTotal;
 };
 
-const totalBet = streetAction => {
-    if (streetAction.length === 0) return 0;
-    return streetAction.slice().reverse().reduce(addToPlayersRunningTotal, { sum: 0 }).sum;
-};
-
+const postOrRaise = action => action.action === 'post' || action.action === 'raise';
 const getStreetAction = state => state.action[state.currentStreet];
-const getLastAction = state => Actions.last(state.action[state.currentStreet]);
-const updateStreet = (prevState, updatedAction) => ({
-    action: {
-        ...prevState.action,
-        [prevState.currentStreet]: updatedAction
-    }
-});
+const getLastAction = state => Actions.last(getStreetAction(state));
+const updateStreet = (prevState, updatedAction) => ({ ...prevState.action, [prevState.currentStreet]: updatedAction });
 
 class Table extends Component {
     state = { };
@@ -46,6 +37,7 @@ class Table extends Component {
             onCheck: this.onCheck.bind(this),
             onCall: this.onCall.bind(this),
             onFold: this.onFold.bind(this),
+            onBet: this.onBet.bind(this),
             onRaise: this.onRaise.bind(this)
         }
     }
@@ -53,6 +45,9 @@ class Table extends Component {
     static getDerivedStateFromProps(props, prevState) {
         return {
             currentStreet: "preflop",
+            currentBet: props.blinds.bb,
+            minimumBet: props.blinds.bb,
+            potSize: props.blinds.sb + props.blinds.bb,
             action: {
                 preflop: [
                     Post(props.blinds.sb, props.players[0].label),
@@ -79,20 +74,48 @@ class Table extends Component {
 
     onBet(playerLabel, amount) {
         const playerAction = Bet(amount, playerLabel);
-        this.setState(prevState =>
-            this.addAction(prevState, playerLabel, playerAction, Fold));
+
+        this.setState(prevState => {
+            const updatedAction = this.addAction(prevState, playerLabel, playerAction, Fold);
+            
+            return {
+                potSize: this.calculatePot(updatedAction),
+                currentBet: amount,
+                minimumBet: amount,
+                action: updatedAction
+            }
+        });
     }
 
     onCall(playerLabel, amount) {
         const playerAction = Call(amount, playerLabel);
-        this.setState(prevState =>
-            this.addAction(prevState, playerLabel, playerAction, Fold));
+
+        this.setState(prevState => {
+            const updatedAction = this.addAction(prevState, playerLabel, playerAction, Fold);
+            
+            return {
+                potSize: this.calculatePot(updatedAction),
+                action: updatedAction
+            }
+        });
     }
 
     onRaise(playerLabel, amount) {
         const playerAction = Raise(amount, playerLabel);
-        this.setState(prevState =>
-            this.addAction(prevState, playerLabel, playerAction, Fold));
+
+        this.setState(prevState => {
+            const updatedAction = this.addAction(prevState, playerLabel, playerAction, Fold);
+            const raiseAmount = playerAction.amount - getLastAction(prevState).amount;
+
+            debug`raiseAmount: ${raiseAmount} newCurrentBet: ${raiseAmount > prevState.minimumBet ? amount : prevState.currentBet}`
+            
+            return {
+                potSize: this.calculatePot(updatedAction),
+                currentBet: raiseAmount >= prevState.minimumBet ? amount : prevState.currentBet,
+                minimumBet: this.calculateMinimumBet(updatedAction[prevState.currentStreet]),
+                action: this.addAction(prevState, playerLabel, playerAction, Fold)
+            }
+        });
     }
 
     addAction(prevState, player, playerAction, defaultAction) {
@@ -133,37 +156,65 @@ class Table extends Component {
         const index = this.playerIndex(player);
         return index === this.props.players.length - 1 ? 0 : index + 1;
     };
-
-    calculatePot() {
+    
+    calculateMinimumBet(action) {
+        return action
+            .filter(postOrRaise)
+            .reduce((prev, action) => {
+            if (action.action === 'raise') {
+                const raiseAmount = action.amount - prev.action.amount;
+                
+                if (raiseAmount >= prev.minBet) {
+                    console.log(`changing raise minbet to ${raiseAmount}`)
+                    return { minBet: raiseAmount, action };
+                } else {
+                    console.log(`ignoring raise of ${raiseAmount}`)
+                    return prev;
+                }
+            }
+            
+            // post
+            return { minBet: action.amount, action };
+        }, { minBet: 0 }).minBet;
+    };
+    
+    calculatePot(action) {
+        const numPlayers = this.props.players.length;
         let total = 0;
-        for (let street in this.state.action) {
-            total += this.state.action[street].reduce((sum, event) => sum + event.amount, 0);
+        for (let street in action) {
+            total += action[street].slice(-numPlayers).reduce((sum, event) => sum + event.amount, 0);
         }
 
         return total;
     }
 
+    bindClickHandlers(player) {
+        // bind the click handlers to the given player
+        return Object.assign({}, ...Object.entries(this.clickHandlers)
+            .map(handler => ({ [handler[0]]: handler[1].bind(this, player) })));
+    }
+
     render() {
         const streetAction = getStreetAction(this.state);
-        const totalCurrentBet = totalBet(streetAction);
-        const minRaise = totalCurrentBet; // TODO implement this
+
+        debug`events: ${streetAction}`
 
         const playerSpots = this.props.players.map(player => {
             return (
                 <Player
-                    {...this.clickHandlers}
+                    clickHandlers={this.bindClickHandlers(player.label)}
                     key={player.label}
                     label={player.label}
-                    stack={player.stack}
+                    startingStack={player.stack}
                     streetAction={actionsForPlayer(streetAction, player)}
-                    currentBet={totalCurrentBet}
-                    minRaiseAmount={minRaise} />
+                    currentBet={this.state.currentBet}
+                    minimumBet={this.state.minimumBet} />
             )
         });
 
         return (
             <div>
-                <Pot size={this.calculatePot()} />
+                <Pot size={this.state.potSize} />
                 {playerSpots}
             </div>
         )

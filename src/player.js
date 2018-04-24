@@ -1,7 +1,7 @@
 import React, { Component } from 'react';
 import styled from 'styled-components';
 
-import { Fold, Check, Call, Bet, Raise, AllIn } from './actions'
+import Actions from './actions'
 import { Log as debug } from './debug'
 
 const PlayerSummary = styled.section`
@@ -9,11 +9,6 @@ const PlayerSummary = styled.section`
     padding: 4px;
     margin: 4px;
     border: solid 2px palegreen;
-`;
-
-const Actions = styled.section`
-    display: flex;
-    flex-direction: row;
 `;
 
 const Invested = styled.div`
@@ -29,56 +24,46 @@ const actionLabels = {
     fold: 'Folded'
 };
 
-const matchesBet = (bet, amount) => amount >= bet;
-const canCheck = (bet, lastAction) => 
-     matchesBet(bet, lastAction.amount) && (lastAction.action === 'none' || lastAction.action === 'post');
-
 const nonAction = { action: 'none', amount: 0 };
 const getLastAction = (streetAction) => streetAction.length > 0 ? streetAction[streetAction.length -1] : nonAction;
 const amountForStreet = streetAction => streetAction.reduce((sum, action) => sum + action.amount, 0);
 
 export default class Player extends Component {
-    constructor(props) {
-        super(props);
+    getBetSize = (stack, amount) => Math.min(stack, this.props.currentBet - amount);
 
-         this.state = {
-             stack: props.label === 'HJ' ? 20 : props.stack
-         };
+    getActionProps(stack, lastAction) {
+        const amountBet = amountForStreet(this.props.streetAction);
+        const amountFaced = this.props.currentBet - amountBet;
+
+        return {
+            ...this.props.clickHandlers,
+            currentBet: this.props.currentBet,
+            lastAction,
+            minimumBet: this.props.minimumBet,
+            maximumBet: stack
+        };
     }
-
-    handleAction(actionHandler, amountPutInPot) {
-        this.updateStack(amountPutInPot);
-        actionHandler(this.props.label, amountPutInPot);
-    }
-
-    updateStack(amount) {
-        this.setState(prevState => ({
-            stack: prevState.stack - amount
-        }));
-    }
-
-    getBetSize = amount => Math.min(this.state.stack, this.props.currentBet - amount);
 
     render() {
-        const amountBet = amountForStreet(this.props.streetAction);
         const lastAction = getLastAction(this.props.streetAction);
+        const stack = this.props.startingStack - lastAction.amount;
 
-        const actions = this.allowedActions(lastAction, amountBet);
+       //const actions = this.allowedActions(lastAction, amountBet);
         const folded = lastAction.action === 'fold';
         const pip = !folded && lastAction.action !== 'check';
 
         const actionElements = !folded && (
-            <Actions>{actions}</Actions>
+            <Actions {...this.getActionProps(stack, lastAction)} />
         );
 
         const investedElement = lastAction.action !== 'none' && (
-            <Invested>{actionLabels[lastAction.action]} {amountBet > 0 && ("$" + amountBet)}</Invested>
+            <Invested>{actionLabels[lastAction.action]} {lastAction.amount > 0 && ("$" + lastAction.amount)}</Invested>
         );
         
         return (
             <PlayerSummary folded={folded}>
                 <div>
-                    <label>{this.props.label} (${this.state.stack})
+                    <label>{this.props.label} (${stack})
                         </label>
                     {investedElement}
                 </div>
@@ -87,7 +72,7 @@ export default class Player extends Component {
         )
     }
 
-    allowedActions(lastAction, amountPutInPot) {
+    /* allowedActions(lastAction, amountPutInPot, stack) {
         let allowedActions = [];
 
         if (lastAction.action === 'fold') {
@@ -107,7 +92,7 @@ export default class Player extends Component {
         }
 
         if (amountPutInPot < this.props.currentBet) {
-            const amountToCall = this.getBetSize(amountPutInPot);
+            const amountToCall = this.getBetSize(stack, amountPutInPot);
             allowedActions.push(
                 <Call 
                     key="call"
@@ -116,14 +101,14 @@ export default class Player extends Component {
             )
         }
 
-        debug`player: ${this.props.label} minAmount: ${this.props.minRaiseAmount} currentBet: ${this.props.currentBet} putInPot: ${amountPutInPot} stack: ${this.state.stack}`
+        debug`player: ${this.props.label} minAmount: ${this.props.minRaiseAmount} currentBet: ${this.props.currentBet} putInPot: ${amountPutInPot} stack: ${stack}`
 
-        const minimumRaise = Math.min(this.props.minRaiseAmount + this.props.currentBet, this.state.stack);
+        const minimumRaise = Math.min(this.props.minRaiseAmount + this.props.currentBet, stack);
 
         const canRaise = 
-            this.props.currentBet < this.state.stack &&
+            this.props.currentBet < stack &&
                 (this.props.currentBet - amountPutInPot >= this.props.minRaiseAmount &&
-                minimumRaise < this.state.stack) ||
+                minimumRaise < stack) ||
                 lastAction.action == 'post';
 
         const canShove = !canRaise && lastAction.action !== 'call' && lastAction.action !== 'raise';
@@ -133,18 +118,18 @@ export default class Player extends Component {
                 <Raise
                     key="raise"
                     minimum={minimumRaise}
-                    maximum={this.state.stack}
+                    maximum={stack}
                     click={this.handleAction.bind(this, this.props.onRaise)} />
             )
         } else if (canShove) {
             allowedActions.push(
                 <AllIn
                     key="all-in"
-                    amount={this.state.stack}
+                    amount={stack}
                     click={this.handleAction.bind(this, this.props.onRaise)} />
             )
         }
 
         return allowedActions;
-    }
+    } */
 }
